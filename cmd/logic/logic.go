@@ -4,110 +4,73 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+
+	expr "github.com/alexMarco7/ga/pkg/expression"
+	"github.com/alexMarco7/ga/pkg/ga"
 )
 
-type Expression struct {
-	Expressions []Expression
-	Input       int
-	Type        int
-}
-
-func (e Expression) Print() string {
-	str := ""
-	switch e.Type {
-	case 1:
-		{
-			str += "NOT("
-		}
-	case 2:
-		{
-			str += "AND("
-		}
-	case 3:
-		{
-			str += "OR("
-		}
-	}
-
-	if e.Type != 0 {
-		for i := 0; i < len(e.Expressions); i++ {
-			if i != 0 {
-				str += ","
-			}
-			str += e.Expressions[i].Print()
-		}
-		str += ")"
-	} else {
-		str += fmt.Sprintf("%d", e.Input)
-	}
-
-	return str
-}
-
 type LogicRules struct {
-	Total int
+	InputValues  [][]bool
+	OutputValues []bool
 }
 
 func (lr LogicRules) Create() interface{} {
-	return createExpression(0, lr.Total)
+	return expr.CreateExpression(4, len(lr.InputValues[0]))
 }
 
 func (lr LogicRules) Fitness(dna interface{}) float64 {
-	return 0.0
+	e := dna.(expr.Expression)
+
+	count := 0
+
+	for i, inputs := range lr.InputValues {
+		if e.Execute(inputs) == lr.OutputValues[i] {
+			count++
+		}
+	}
+
+	return float64(count) + (1 / float64(e.Complexity()) * 0.1)
 }
-func (lr LogicRules) Crossover(dna1 interface{}, dna2 interface{}) interface{} {
-	return nil
+func (lr LogicRules) Crossover(dna1 interface{}, f1 float64, dna2 interface{}, f2 float64) interface{} {
+	e1 := dna1.(expr.Expression)
+	e2 := dna2.(expr.Expression)
+
+	return expr.MergeExpression(e1, f1, e2, f2)
 }
 func (lr LogicRules) Mutate(dna interface{}) interface{} {
-	return nil
+	e := dna.(expr.Expression)
+	return expr.MutateExpression(e, len(lr.InputValues[0]))
 }
 
 func (lr LogicRules) HasFinished(generation int, dna interface{}, fitness float64) bool {
-	fmt.Printf("\r generation: %d | %s | fitness: %2f", generation, dna, fitness)
-	return false
+	e := dna.(expr.Expression)
+	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, e.ToString(), fitness)
+	return generation > 10000
 }
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
-	fmt.Println(createExpression(0, 2).Print())
-	/*
-		start := time.Now()
 
-		fmt.Printf("%d", runtime.NumCPU())
+	start := time.Now()
 
-		ga.Run(LogicRules{}, ga.Options{
-			PopulationSize: 1000,
-			MutationRate:   0.1,
-		})
-		elapsed := time.Since(start)
-		fmt.Printf("\nTime taken: %s\n", elapsed)
-	*/
-}
+	ga.Run(LogicRules{
+		InputValues: [][]bool{
+			{false, false},
+			{false, true},
+			{true, false},
+			{true, true},
+		},
+		OutputValues: []bool{
+			false,
+			false,
+			false,
+			true,
+		},
+	}, ga.Options{
+		PopulationSize: 3000,
+		MutationRate:   0.05,
+	})
+	elapsed := time.Since(start)
+	fmt.Printf("\nTime taken: %s\n", elapsed)
 
-func createExpression(depth int, totalInput int) Expression {
-	leaf := depth >= 4 || rand.Float64() < 0.1
-	if leaf {
-		return Expression{
-			Input: rand.Intn(totalInput),
-			Type:  0,
-		}
-	} else {
-		tp := 1 + rand.Intn(3)
-		if tp == 1 { //not
-			return Expression{
-				Expressions: []Expression{createExpression(depth+1, totalInput)},
-				Type:        tp,
-			}
-		} else { //and - or
-			n := 2 + rand.Intn(4)
-			ex := Expression{
-				Expressions: []Expression{},
-				Type:        tp,
-			}
-			for i := 0; i < n; i++ {
-				ex.Expressions = append(ex.Expressions, createExpression(depth+1, totalInput))
-			}
-			return ex
-		}
-	}
 }

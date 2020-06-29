@@ -16,7 +16,7 @@ type Options struct {
 type Rules interface {
 	Create() interface{}
 	Fitness(interface{}) float64
-	Crossover(interface{}, interface{}) interface{}
+	Crossover(interface{}, float64, interface{}, float64) interface{}
 	Mutate(interface{}) interface{}
 	HasFinished(int, interface{}, float64) bool
 }
@@ -120,7 +120,7 @@ func (g *GA) naturalSelection(pool []int, population []Organism) []Organism {
 			a := population[pool[r1]]
 			b := population[pool[r2]]
 
-			childDNA := g.Rules.Crossover(a.DNA, b.DNA)
+			childDNA := g.Rules.Crossover(a.DNA, a.Fitness, b.DNA, b.Fitness)
 			child := Organism{DNA: childDNA}
 
 			if rand.Float32() < g.Options.MutationRate {

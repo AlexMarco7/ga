@@ -31,7 +31,7 @@ func (tr TextRules) Fitness(dna interface{}) float64 {
 	}
 	return float64(score)
 }
-func (tr TextRules) Crossover(dna1 interface{}, dna2 interface{}) interface{} {
+func (tr TextRules) Crossover(dna1 interface{}, f1 float64, dna2 interface{}, f2 float64) interface{} {
 
 	a := dna1.([]byte)
 	b := dna2.([]byte)
