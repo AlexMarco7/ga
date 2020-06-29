@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/alexmarco7/ga/pkg/ga"
+	"github.com/alexMarco7/ga/pkg/ga"
 )
 
 type TextRules struct {
@@ -49,9 +49,11 @@ func (tr TextRules) Crossover(dna1 interface{}, dna2 interface{}) interface{} {
 }
 func (tr TextRules) Mutate(dna interface{}) interface{} {
 	value := (dna).([]byte)
-	for i := 0; i < len(value); i++ {
-		if rand.Float64() < 0.1 {
-			value[i] = byte(rand.Intn(95) + 32)
+	for {
+		idx := rand.Intn(len(value))
+		if value[idx] != tr.Target[idx] {
+			value[idx] = byte(rand.Intn(95) + 32)
+			break
 		}
 	}
 	return value
@@ -68,7 +70,7 @@ func main() {
 	fmt.Printf("%d", runtime.NumCPU())
 
 	ga.Run(TextRules{
-		Target: []byte("To be or not to be"),
+		Target: []byte(`Ouviram do Ipiranga as margens placidas.De um povo heroico o brado retumbante.E o sol da liberdade, em raios fulgidos.Brilhou no ceu da patria nesse instante.`),
 	}, ga.Options{
 		PopulationSize: 1000,
 		MutationRate:   0.1,

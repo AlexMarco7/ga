@@ -95,40 +95,30 @@ func (g *GA) getBest(population []Organism) Organism {
 	return population[index]
 }
 
-func (g *GA) createPool(population []Organism, maxFitness float64) []Organism {
-	pool := make([]Organism, 0)
+func (g *GA) createPool(population []Organism, maxFitness float64) []int {
+	pool := make([]int, 0)
 
-	// create a pool for next generation
-	var wg sync.WaitGroup
-	for i := 1; i <= len(population); i++ {
-		wg.Add(1)
-		go func(i int) {
-			num := int((population[i].Fitness / maxFitness) * 100)
-			for n := 0; n < num; n++ {
-				pool = append(pool, population[i])
-			}
-			wg.Done()
-		}(i - 1)
-		if i%g.CPUNum == 0 {
-			wg.Wait()
+	for i := 0; i < len(population); i++ {
+		num := int((population[i].Fitness / maxFitness) * 100)
+		for n := 0; n < num; n++ {
+			pool = append(pool, i)
 		}
 	}
-	wg.Wait()
 
 	return pool
 }
 
-// perform natural selection to create the next generation
-func (g *GA) naturalSelection(pool []Organism, population []Organism) []Organism {
+func (g *GA) naturalSelection(pool []int, population []Organism) []Organism {
 	next := make([]Organism, len(population))
 
 	var wg sync.WaitGroup
+
 	for i := 1; i <= len(population); i++ {
 		wg.Add(1)
 		go func(i int) {
 			r1, r2 := rand.Intn(len(pool)), rand.Intn(len(pool))
-			a := pool[r1]
-			b := pool[r2]
+			a := population[pool[r1]]
+			b := population[pool[r2]]
 
 			childDNA := g.Rules.Crossover(a.DNA, b.DNA)
 			child := Organism{DNA: childDNA}
