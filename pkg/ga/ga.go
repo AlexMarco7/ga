@@ -56,6 +56,7 @@ func Run(rules Rules, options Options) interface{} {
 			maxFitness := bestOrganism.Fitness
 			pool := g.createPool(population, maxFitness)
 			population = g.naturalSelection(pool, population)
+			population = append(population, bestOrganism)
 		}
 
 	}
@@ -109,11 +110,11 @@ func (g *GA) createPool(population []Organism, maxFitness float64) []int {
 }
 
 func (g *GA) naturalSelection(pool []int, population []Organism) []Organism {
-	next := make([]Organism, len(population))
+	next := make([]Organism, len(population)-1)
 
 	var wg sync.WaitGroup
 
-	for i := 1; i <= len(population); i++ {
+	for i := 1; i <= len(population)-1; i++ {
 		wg.Add(1)
 		go func(i int) {
 			r1, r2 := rand.Intn(len(pool)), rand.Intn(len(pool))
@@ -121,12 +122,12 @@ func (g *GA) naturalSelection(pool []int, population []Organism) []Organism {
 			b := population[pool[r2]]
 
 			childDNA := g.Rules.Crossover(a.DNA, a.Fitness, b.DNA, b.Fitness)
-			child := Organism{DNA: childDNA}
 
 			if rand.Float32() < g.Options.MutationRate {
-				child = Organism{DNA: g.Rules.Mutate(childDNA)}
+				childDNA = g.Rules.Mutate(childDNA)
 			}
 
+			child := Organism{DNA: childDNA}
 			child.Fitness = g.Rules.Fitness(child.DNA)
 
 			next[i] = child

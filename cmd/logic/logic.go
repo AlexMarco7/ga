@@ -45,6 +45,11 @@ func (lr LogicRules) Mutate(dna interface{}) interface{} {
 func (lr LogicRules) HasFinished(generation int, dna interface{}, fitness float64) bool {
 	e := dna.(expr.Expression)
 	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, e.ToString(), fitness)
+
+	/*for i, inputs := range lr.InputValues {
+		fmt.Printf("\n %v | %v | %v", inputs, e.Execute(inputs), lr.OutputValues[i])
+	}*/
+
 	return generation > 10000
 }
 
@@ -55,19 +60,27 @@ func main() {
 
 	ga.Run(LogicRules{
 		InputValues: [][]bool{
-			{false, false},
-			{false, true},
-			{true, false},
-			{true, true},
+			{false, false, false},
+			{false, false, true},
+			{false, true, false},
+			{false, true, true},
+			{true, false, false},
+			{true, false, true},
+			{true, true, false},
+			{true, true, true},
 		},
 		OutputValues: []bool{
 			false,
 			false,
 			false,
-			true,
+			false,
+			false,
+			false,
+			false,
+			false,
 		},
 	}, ga.Options{
-		PopulationSize: 3000,
+		PopulationSize: 500,
 		MutationRate:   0.05,
 	})
 	elapsed := time.Since(start)
