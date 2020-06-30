@@ -148,6 +148,11 @@ func MergeExpression(a Expression, af float64, b Expression, bf float64) Express
 		return OptimizeExpression(a)
 	} else if rand.Float64() <= (1-r)/2 {
 		return OptimizeExpression(b)
+	} else if rand.Float64() <= 0.2 {
+		return Expression{
+			Operator:    OR,
+			Expressions: []Expression{a, b},
+		}
 	}
 
 	newExpressions := []Expression{}

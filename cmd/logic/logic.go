@@ -10,8 +10,10 @@ import (
 )
 
 type LogicRules struct {
-	InputValues  [][]bool
-	OutputValues []bool
+	InputValues          [][]bool
+	OutputValues         []bool
+	BestFitness          float64
+	SameBestFitnessCount int
 }
 
 func (lr LogicRules) Create() interface{} {
@@ -29,7 +31,14 @@ func (lr LogicRules) Fitness(dna interface{}) float64 {
 		}
 	}
 
-	return float64(count) + (1 / float64(e.Complexity()) * 0.1)
+	f := float64(count)
+
+	if lr.SameBestFitnessCount >= 10 {
+		lr.SameBestFitnessCount = 0
+		f += (1 / float64(e.Complexity()) * 0.1)
+	}
+
+	return f
 }
 func (lr LogicRules) Crossover(dna1 interface{}, f1 float64, dna2 interface{}, f2 float64) interface{} {
 	e1 := dna1.(expr.Expression)
@@ -43,12 +52,18 @@ func (lr LogicRules) Mutate(dna interface{}) interface{} {
 }
 
 func (lr LogicRules) HasFinished(generation int, dna interface{}, fitness float64) bool {
-	e := dna.(expr.Expression)
-	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, e.ToString(), fitness)
+	//e := dna.(expr.Expression)
+	fmt.Printf("\r generation: %d | %s | fitness: %2f", generation, "" /*e.ToString()*/, fitness)
 
 	/*for i, inputs := range lr.InputValues {
 		fmt.Printf("\n %v | %v | %v", inputs, e.Execute(inputs), lr.OutputValues[i])
 	}*/
+
+	if lr.BestFitness == fitness {
+		lr.SameBestFitnessCount++
+	}
+
+	lr.BestFitness = fitness
 
 	return fitness > float64(len(lr.InputValues)) //generation > 10000
 }
