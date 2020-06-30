@@ -50,7 +50,7 @@ func (lr LogicRules) HasFinished(generation int, dna interface{}, fitness float6
 		fmt.Printf("\n %v | %v | %v", inputs, e.Execute(inputs), lr.OutputValues[i])
 	}*/
 
-	return generation > 10000
+	return fitness > float64(len(lr.InputValues)) //generation > 10000
 }
 
 func main() {
@@ -58,29 +58,33 @@ func main() {
 
 	start := time.Now()
 
+	inputStr := []string{
+		"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+	}
+	inputValues := [][]bool{}
+	outputValues := []bool{}
+
+	for _, c := range inputStr {
+		bt := []byte(c)[0]
+		input := []bool{
+			bt&1 == 1,
+			bt&2 == 2,
+			bt&4 == 4,
+			bt&8 == 8,
+			bt&16 == 16,
+			bt&32 == 32,
+			bt&64 == 64,
+			bt&128 == 128,
+		}
+		inputValues = append(inputValues, input)
+		outputValues = append(outputValues, (c == "A" || c == "E" || c == "I" || c == "O" || c == "U" || c == "a" || c == "e" || c == "i" || c == "o" || c == "u"))
+	}
+
 	ga.Run(LogicRules{
-		InputValues: [][]bool{
-			{false, false, false},
-			{false, false, true},
-			{false, true, false},
-			{false, true, true},
-			{true, false, false},
-			{true, false, true},
-			{true, true, false},
-			{true, true, true},
-		},
-		OutputValues: []bool{
-			false,
-			false,
-			false,
-			false,
-			false,
-			false,
-			false,
-			false,
-		},
+		InputValues:  inputValues,
+		OutputValues: outputValues,
 	}, ga.Options{
-		PopulationSize: 500,
+		PopulationSize: 5000,
 		MutationRate:   0.05,
 	})
 	elapsed := time.Since(start)

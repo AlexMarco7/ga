@@ -145,9 +145,9 @@ func MergeExpression(a Expression, af float64, b Expression, bf float64) Express
 	} else if a.Operator == EQ && b.Operator != EQ {
 		a = b
 	} else if rand.Float64() <= r/2 {
-		return a
+		return OptimizeExpression(a)
 	} else if rand.Float64() <= (1-r)/2 {
-		return b
+		return OptimizeExpression(b)
 	}
 
 	newExpressions := []Expression{}
@@ -213,8 +213,8 @@ func OptimizeExpression(e Expression) Expression {
 }
 
 func MutateExpression(e Expression, inputLength int) Expression {
-	if rand.Float64() < 0.01 {
-		return CreateExpression(4, inputLength)
+	if rand.Float64() < 0.05 {
+		return CreateExpression(2, inputLength)
 	}
 
 	change := rand.Float64() < 0.2
@@ -239,6 +239,9 @@ func MutateExpression(e Expression, inputLength int) Expression {
 					i := rand.Intn(len(e.Expressions))
 					e.Expressions = append(e.Expressions[:i], e.Expressions[i+1:]...)
 				}
+				if rand.Float64() < 0.5 {
+					e.Expressions = append(e.Expressions, CreateExpression(1, inputLength))
+				}
 			}
 			newExpressions := []Expression{}
 			for _, ee := range e.Expressions {
@@ -253,6 +256,9 @@ func MutateExpression(e Expression, inputLength int) Expression {
 				if len(e.Expressions) > 1 && rand.Float64() < 0.5 {
 					i := rand.Intn(len(e.Expressions))
 					e.Expressions = append(e.Expressions[:i], e.Expressions[i+1:]...)
+				}
+				if rand.Float64() < 0.5 {
+					e.Expressions = append(e.Expressions, CreateExpression(1, inputLength))
 				}
 			}
 
