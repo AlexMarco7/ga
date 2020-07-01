@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/alexMarco7/ga/pkg/ga"
+	"github.com/alexmarco7/ga/pkg/ga"
 )
 
 type TextRules struct {

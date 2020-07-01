@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"time"
 
-	expr "github.com/alexMarco7/ga/pkg/expression"
-	"github.com/alexMarco7/ga/pkg/ga"
+	expr "github.com/alexmarco7/ga/pkg/expression"
+	"github.com/alexmarco7/ga/pkg/ga"
 )
 
 type LogicRules struct {
