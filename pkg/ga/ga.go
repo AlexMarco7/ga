@@ -2,7 +2,6 @@ package ga
 
 import (
 	"math/rand"
-	"runtime"
 	"sync"
 	"time"
 )
@@ -33,7 +32,7 @@ type GA struct {
 }
 
 func Run(rules Rules, options Options) interface{} {
-	g := GA{rules, options, runtime.NumCPU()}
+	g := GA{rules, options, 1 /*runtime.NumCPU()*/}
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -105,6 +104,8 @@ func (g *GA) createPool(population []Organism, maxFitness float64) []int {
 			pool = append(pool, i)
 		}
 	}
+
+	panic(len(pool))
 
 	return pool
 }

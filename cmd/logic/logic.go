@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"time"
 
-	expr "github.com/alexMarco7/ga/pkg/expression"
-	"github.com/alexMarco7/ga/pkg/ga"
+	expr "github.com/alexmarco7/ga/pkg/expression"
+	"github.com/alexmarco7/ga/pkg/ga"
 )
 
 type LogicRules struct {
@@ -33,10 +33,10 @@ func (lr LogicRules) Fitness(dna interface{}) float64 {
 
 	f := float64(count)
 
-	if lr.SameBestFitnessCount >= 10 {
-		lr.SameBestFitnessCount = 0
-		f += (1 / float64(e.Complexity()) * 0.1)
-	}
+	//if lr.SameBestFitnessCount >= 10 {
+	lr.SameBestFitnessCount = 0
+	f += (1 / float64(e.Complexity()) * 0.1)
+	//}
 
 	return f
 }
@@ -53,7 +53,7 @@ func (lr LogicRules) Mutate(dna interface{}) interface{} {
 
 func (lr LogicRules) HasFinished(generation int, dna interface{}, fitness float64) bool {
 	//e := dna.(expr.Expression)
-	fmt.Printf("\r generation: %d | %s | fitness: %2f", generation, "" /*e.ToString()*/, fitness)
+	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, "" /*e.ToString()*/, fitness)
 
 	/*for i, inputs := range lr.InputValues {
 		fmt.Printf("\n %v | %v | %v", inputs, e.Execute(inputs), lr.OutputValues[i])
