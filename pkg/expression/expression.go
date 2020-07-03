@@ -177,6 +177,10 @@ func MergeExpression(a Expression, af float64, b Expression, bf float64) Express
 		}
 	}
 
+	if len(newExpressions) == 0 {
+		panic(newExpressions)
+	}
+
 	return OptimizeExpression(Expression{
 		Operator:    a.Operator,
 		Expressions: newExpressions,
@@ -186,35 +190,37 @@ func MergeExpression(a Expression, af float64, b Expression, bf float64) Express
 
 func OptimizeExpression(e Expression) Expression {
 
-	if e.Operator == NOT {
-		if e.Expressions[0].Operator == NOT {
-			e = e.Expressions[0].Expressions[0]
-		} else {
-			e.Expressions = []Expression{OptimizeExpression(e.Expressions[0])}
-		}
-	} else if e.Operator == AND || e.Operator == OR {
-		newExpressions := []Expression{}
-		eqMap := map[int]Expression{}
-		for _, ee := range e.Expressions {
-			ee = OptimizeExpression(ee)
-			if ee.Operator == EQ {
-				eqMap[ee.Input] = ee
+	return e /*
+
+		if e.Operator == NOT {
+			if e.Expressions[0].Operator == NOT {
+				e = e.Expressions[0].Expressions[0]
 			} else {
-				newExpressions = append(newExpressions, ee)
+				e.Expressions = []Expression{OptimizeExpression(e.Expressions[0])}
+			}
+		} else if e.Operator == AND || e.Operator == OR {
+			newExpressions := []Expression{}
+			eqMap := map[int]Expression{}
+			for _, ee := range e.Expressions {
+				ee = OptimizeExpression(ee)
+				if ee.Operator == EQ {
+					eqMap[ee.Input] = ee
+				} else {
+					newExpressions = append(newExpressions, ee)
+				}
+			}
+			for _, v := range eqMap {
+				newExpressions = append(newExpressions, v)
+			}
+			e.Expressions = newExpressions
+
+			if len(e.Expressions) == 1 {
+				e = e.Expressions[0]
 			}
 		}
-		for _, v := range eqMap {
-			newExpressions = append(newExpressions, v)
-		}
-		e.Expressions = newExpressions
 
-		if len(e.Expressions) == 1 {
-			e = e.Expressions[0]
-		}
-	}
-
-	return e
-
+		return e
+	*/
 }
 
 func MutateExpression(e Expression, inputLength int) Expression {
@@ -236,40 +242,27 @@ func MutateExpression(e Expression, inputLength int) Expression {
 				e = e.Expressions[0]
 			}
 		}
-	case AND:
+	default:
 		{
+			newExpressions := []Expression{}
 			if change {
-				e.Operator = OR
-				if len(e.Expressions) > 1 && rand.Float64() < 0.5 {
-					i := rand.Intn(len(e.Expressions))
-					e.Expressions = append(e.Expressions[:i], e.Expressions[i+1:]...)
+				if e.Operator == AND {
+					e.Operator = OR
+				} else {
+					e.Operator = AND
+				}
+				for _, ee := range e.Expressions {
+					if rand.Float64() >= 0.1 {
+						newExpressions = append(newExpressions, MutateExpression(ee, inputLength))
+					}
 				}
 				if rand.Float64() < 0.5 {
-					e.Expressions = append(e.Expressions, CreateExpression(1, inputLength))
+					newExpressions = append(newExpressions, CreateExpression(2, inputLength))
 				}
-			}
-			newExpressions := []Expression{}
-			for _, ee := range e.Expressions {
-				newExpressions = append(newExpressions, MutateExpression(ee, inputLength))
-			}
-			e.Expressions = newExpressions
-		}
-	case OR:
-		{
-			if change {
-				e.Operator = AND
-				if len(e.Expressions) > 1 && rand.Float64() < 0.5 {
-					i := rand.Intn(len(e.Expressions))
-					e.Expressions = append(e.Expressions[:i], e.Expressions[i+1:]...)
+			} else {
+				for _, ee := range e.Expressions {
+					newExpressions = append(newExpressions, MutateExpression(ee, inputLength))
 				}
-				if rand.Float64() < 0.5 {
-					e.Expressions = append(e.Expressions, CreateExpression(1, inputLength))
-				}
-			}
-
-			newExpressions := []Expression{}
-			for _, ee := range e.Expressions {
-				newExpressions = append(newExpressions, MutateExpression(ee, inputLength))
 			}
 			e.Expressions = newExpressions
 		}

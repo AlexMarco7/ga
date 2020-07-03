@@ -2,6 +2,8 @@ package ga
 
 import (
 	"math/rand"
+	"runtime"
+	"sort"
 	"sync"
 	"time"
 )
@@ -21,8 +23,9 @@ type Rules interface {
 }
 
 type Organism struct {
-	DNA     interface{}
-	Fitness float64
+	DNA        interface{}
+	Fitness    float64
+	FitnessAcc float64
 }
 
 type GA struct {
@@ -32,7 +35,7 @@ type GA struct {
 }
 
 func Run(rules Rules, options Options) interface{} {
-	g := GA{rules, options, 1 /*runtime.NumCPU()*/}
+	g := GA{rules, options, runtime.NumCPU()}
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
@@ -53,8 +56,8 @@ func Run(rules Rules, options Options) interface{} {
 			result = bestOrganism.DNA
 		} else {
 			maxFitness := bestOrganism.Fitness
-			pool := g.createPool(population, maxFitness)
-			population = g.naturalSelection(pool, population)
+			fitnessAcc := g.sort(population, maxFitness)
+			population = g.naturalSelection(population, fitnessAcc)
 			population = append(population, bestOrganism)
 		}
 
@@ -95,22 +98,20 @@ func (g *GA) getBest(population []Organism) Organism {
 	return population[index]
 }
 
-func (g *GA) createPool(population []Organism, maxFitness float64) []int {
-	pool := make([]int, 0)
+func (g *GA) sort(population []Organism, maxFitness float64) float64 {
+	acc := 0.0
+	sort.Slice(population, func(i, j int) bool {
+		return population[i].Fitness < population[j].Fitness
+	})
+	for _, o := range population {
+		acc += o.Fitness
+		o.FitnessAcc = acc
 
-	for i := 0; i < len(population); i++ {
-		num := int((population[i].Fitness / maxFitness) * 100)
-		for n := 0; n < num; n++ {
-			pool = append(pool, i)
-		}
 	}
-
-	panic(len(pool))
-
-	return pool
+	return acc
 }
 
-func (g *GA) naturalSelection(pool []int, population []Organism) []Organism {
+func (g *GA) naturalSelection(population []Organism, fitnessAcc float64) []Organism {
 	next := make([]Organism, len(population)-1)
 
 	var wg sync.WaitGroup
@@ -118,9 +119,20 @@ func (g *GA) naturalSelection(pool []int, population []Organism) []Organism {
 	for i := 1; i <= len(population)-1; i++ {
 		wg.Add(1)
 		go func(i int) {
-			r1, r2 := rand.Intn(len(pool)), rand.Intn(len(pool))
-			a := population[pool[r1]]
-			b := population[pool[r2]]
+			var a Organism
+			var b Organism
+
+			ra := fitnessAcc * rand.Float64()
+			rb := fitnessAcc * rand.Float64()
+
+			for _, o := range population {
+				if o.FitnessAcc <= ra {
+					a = o
+				}
+				if o.FitnessAcc <= rb {
+					b = o
+				}
+			}
 
 			childDNA := g.Rules.Crossover(a.DNA, a.Fitness, b.DNA, b.Fitness)
 
