@@ -13,12 +13,17 @@ const (
 	NOT
 	AND
 	OR
+	NAND
+	NOR
+	XOR
+	NXOR
 )
 
 type Expression struct {
 	Expressions []Expression
 	Input       int
 	Operator    Operator
+	Depth       int
 }
 
 func (e Expression) ToString() string {
@@ -36,6 +41,22 @@ func (e Expression) ToString() string {
 		{
 			str += "OR("
 		}
+	case NAND:
+		{
+			str += "NAND("
+		}
+	case NOR:
+		{
+			str += "NOR("
+		}
+	case XOR:
+		{
+			str += "XOR("
+		}
+	case NXOR:
+		{
+			str += "NXOR("
+		}
 	}
 
 	if e.Operator != 0 {
@@ -47,14 +68,14 @@ func (e Expression) ToString() string {
 		}
 		str += ")"
 	} else {
-		str += fmt.Sprintf("%d", e.Input)
+		str += fmt.Sprintf("%s", string(65+e.Input))
 	}
 
 	return str
 }
 
 func (e Expression) Complexity() int {
-	if e.Operator != 0 {
+	if e.Operator != EQ {
 		c := 1
 		for _, ee := range e.Expressions {
 			c += ee.Complexity()
@@ -65,22 +86,38 @@ func (e Expression) Complexity() int {
 	}
 }
 
-func (e Expression) Execute(inputs []bool) bool {
+func (e Expression) Fitness(input [][]bool, output []bool, complexityRate float64) float64 {
+	count := 0
+
+	for i, input := range input {
+		if e.Execute(input) == output[i] {
+			count++
+		}
+	}
+
+	if complexityRate == 0.0 {
+		return float64(count)
+	} else {
+		return float64(count) + (1 / float64(e.Complexity()) * complexityRate)
+	}
+}
+
+func (e Expression) Execute(input []bool) bool {
 	switch e.Operator {
 	case EQ:
 		{
-			return inputs[e.Input]
+			return input[e.Input]
 
 		}
 	case NOT:
 		{
-			return !e.Expressions[0].Execute(inputs)
+			return !e.Expressions[0].Execute(input)
 		}
 	case AND:
 		{
 			b := true
 			for _, ee := range e.Expressions {
-				b = b && ee.Execute(inputs)
+				b = b && ee.Execute(input)
 				if !b {
 					break
 				}
@@ -91,46 +128,86 @@ func (e Expression) Execute(inputs []bool) bool {
 		{
 			b := false
 			for _, ee := range e.Expressions {
-				b = b || ee.Execute(inputs)
+				b = b || ee.Execute(input)
 				if b {
 					break
 				}
 			}
 			return b
 		}
+	case NAND:
+		{
+			b := true
+			for _, ee := range e.Expressions {
+				b = b && ee.Execute(input)
+				if !b {
+					break
+				}
+			}
+			return !b
+		}
+	case NOR:
+		{
+			b := false
+			for _, ee := range e.Expressions {
+				b = b || ee.Execute(input)
+				if b {
+					break
+				}
+			}
+			return !b
+		}
+	case XOR:
+		{
+			return !e.Expressions[0].Execute(input) != !e.Expressions[1].Execute(input)
+		}
+	case NXOR:
+		{
+			return !e.Expressions[0].Execute(input) != !e.Expressions[1].Execute(input)
+		}
 	}
 	return false
 }
 
-func CreateExpression(depth int, inputLength int) Expression {
-	leaf := depth == 0 || rand.Float64() < 0.1
+func Create(depth int, maxDepth int, inputLength int) Expression {
+	if depth < 1 {
+		depth = 1
+	}
+
+	leaf := depth >= maxDepth-1 || random(1/float64(maxDepth))
 	if leaf {
 		return Expression{
 			Input:    rand.Intn(inputLength),
-			Operator: 0,
+			Operator: EQ,
+			Depth:    depth,
 		}
 	} else {
-		tp := Operator(1 + rand.Intn(3))
+		tp := Operator(1 + rand.Intn(7))
 		if tp == NOT {
 			return Expression{
-				Expressions: []Expression{CreateExpression(depth-1, inputLength)},
+				Expressions: []Expression{Create(depth+1, maxDepth, inputLength)},
 				Operator:    tp,
 			}
-		} else { //and - or
-			n := 2 + rand.Intn(4)
+		} else {
+			n := 2 + rand.Intn(inputLength)
+
+			if tp == XOR || tp == NXOR {
+				n = 2
+			}
+
 			ex := Expression{
 				Expressions: []Expression{},
 				Operator:    tp,
 			}
 			for i := 0; i < n; i++ {
-				ex.Expressions = append(ex.Expressions, CreateExpression(depth-1, inputLength))
+				ex.Expressions = append(ex.Expressions, Create(depth+1, maxDepth, inputLength))
 			}
 			return (ex)
 		}
 	}
 }
 
-func MergeExpression(a Expression, af float64, b Expression, bf float64) Expression {
+func Merge(a Expression, af float64, b Expression, bf float64) Expression {
 
 	r := 0.5
 
@@ -166,11 +243,11 @@ func MergeExpression(a Expression, af float64, b Expression, bf float64) Express
 			}
 		} else {
 			if i < len(a.Expressions) {
-				if len(newExpressions) == 0 || rand.Float64() <= r {
+				if len(newExpressions) < minItems(a.Operator) || rand.Float64() <= r {
 					newExpressions = append(newExpressions, a.Expressions[i])
 				}
 			} else {
-				if len(newExpressions) == 0 || rand.Float64() <= 1-r {
+				if len(newExpressions) < minItems(a.Operator) || rand.Float64() <= 1-r {
 					newExpressions = append(newExpressions, b.Expressions[i])
 				}
 			}
@@ -188,19 +265,32 @@ func MergeExpression(a Expression, af float64, b Expression, bf float64) Express
 
 }
 
-func OptimizeExpression(e Expression) Expression {
+func minItems(o Operator) int {
+	switch o {
+	case NOT:
+		return 1
+	case XOR:
+		return 2
+	case NXOR:
+		return 2
+	default:
+		return 1
+	}
+}
+
+func Optimize(e Expression) Expression {
 
 	if e.Operator == NOT {
 		if e.Expressions[0].Operator == NOT {
 			e = e.Expressions[0].Expressions[0]
 		} else {
-			e.Expressions = []Expression{OptimizeExpression(e.Expressions[0])}
+			e.Expressions = []Expression{Optimize(e.Expressions[0])}
 		}
-	} else if e.Operator == AND || e.Operator == OR {
+	} else if e.Operator != EQ {
 		newExpressions := []Expression{}
 		eqMap := map[int]Expression{}
 		for _, ee := range e.Expressions {
-			ee = OptimizeExpression(ee)
+			ee = Optimize(ee)
 			if ee.Operator == EQ {
 				eqMap[ee.Input] = ee
 			} else {
@@ -214,6 +304,7 @@ func OptimizeExpression(e Expression) Expression {
 
 		if len(e.Expressions) == 1 {
 			e = e.Expressions[0]
+			e.Depth--
 		}
 	}
 
@@ -221,64 +312,83 @@ func OptimizeExpression(e Expression) Expression {
 
 }
 
-func MutateExpression(e Expression, inputLength int) Expression {
-	if rand.Float64() < 0.1 {
-		return CreateExpression(3, inputLength)
-	}
-
-	if rand.Float64() < 0.1 {
-		return OptimizeExpression(e)
-	}
-
-	change := rand.Float64() < 0.5
-	switch e.Operator {
-	case EQ:
-		{
-			if change {
-				e.Input = rand.Intn(inputLength)
+func Mutate(e Expression, mutationRate float64, maxDepth int, inputLength int) Expression {
+	if random(mutationRate) {
+		switch e.Operator {
+		case EQ:
+			{
+				if random(mutationRate) {
+					e.Input = rand.Intn(inputLength)
+				}
 			}
-		}
-	case NOT:
-		{
-			if change {
-				e = e.Expressions[0]
+		case NOT:
+			{
+				e.Expressions[0] = Mutate(e.Expressions[0], mutationRate, maxDepth, inputLength)
+				if random(mutationRate) {
+					e = e.Expressions[0]
+					e.Depth--
+				}
 			}
-		}
-	default:
-		{
-			if change {
-				if rand.Float64() < 0.2 {
+		case XOR:
+			fallthrough
+		case NXOR:
+			{
+				e.Expressions[0] = Mutate(e.Expressions[0], mutationRate, maxDepth, inputLength)
+				e.Expressions[1] = Mutate(e.Expressions[1], mutationRate, maxDepth, inputLength)
+				if random(mutationRate) {
+					e.Operator = []Operator{XOR, NXOR}[rand.Intn(2)]
+				}
+			}
+		case AND:
+			fallthrough
+		case OR:
+			fallthrough
+		case NAND:
+			fallthrough
+		case NOR:
+			{
+				if random(mutationRate) {
+					newExpressions := []Expression{}
+
+					for _, ee := range e.Expressions {
+						if !random((1 / float64(len(e.Expressions)))) {
+							newExpressions = append(newExpressions, Mutate(ee, mutationRate, maxDepth, inputLength))
+						}
+					}
+					if random((1 / float64(len(e.Expressions)))) {
+						newExpressions = append(newExpressions, Create(e.Depth+1, maxDepth, inputLength))
+					}
+					e.Expressions = newExpressions
+				} else if random(mutationRate) {
 					idx := int(math.Floor(1 / float64(len(e.Expressions))))
 					if idx < len(e.Expressions) && idx >= 0 {
 						e = e.Expressions[idx]
+						e.Depth--
 					}
-				} else {
+				} else if random(mutationRate) {
+					e.Operator = []Operator{AND, OR, NAND, NOR}[rand.Intn(4)]
 					newExpressions := []Expression{}
-					if rand.Float64() < 0.2 {
-						if e.Operator == AND {
-							e.Operator = OR
-						} else {
-							e.Operator = AND
-						}
-					}
 					for _, ee := range e.Expressions {
-						if rand.Float64() >= (1 / float64(len(e.Expressions))) {
-							newExpressions = append(newExpressions, MutateExpression(ee, inputLength))
-						}
-					}
-					if rand.Float64() < (1 / float64(len(e.Expressions))) {
-						newExpressions = append(newExpressions, CreateExpression(2, inputLength))
+						newExpressions = append(newExpressions, Mutate(ee, mutationRate, maxDepth, inputLength))
 					}
 					e.Expressions = newExpressions
 				}
-			} else {
-				newExpressions := []Expression{}
-				for _, ee := range e.Expressions {
-					newExpressions = append(newExpressions, MutateExpression(ee, inputLength))
-				}
-				e.Expressions = newExpressions
 			}
 		}
+		return (e)
+	} else if random(mutationRate) {
+		return Optimize(e)
+	} else if random(mutationRate) {
+		return Create(e.Depth, maxDepth, inputLength)
+	} else {
+		return Expression{
+			Input:    rand.Intn(inputLength),
+			Operator: EQ,
+			Depth:    e.Depth,
+		}
 	}
-	return (e)
+}
+
+func random(rate float64) bool {
+	return rand.Float64() < rate
 }

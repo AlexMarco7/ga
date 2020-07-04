@@ -9,51 +9,42 @@ import (
 	"github.com/alexmarco7/ga/pkg/ga"
 )
 
-type LogicRules struct {
+type IsVowelRules struct {
 	InputValues  [][]bool
 	OutputValues []bool
+	MutationRate float64
+	MaxDepth     int
 }
 
-func (lr LogicRules) Create() interface{} {
-	return expr.CreateExpression(4, len(lr.InputValues[0]))
+func (r IsVowelRules) Create() interface{} {
+	return expr.Create(1, r.MaxDepth, len(r.InputValues[0]))
 }
 
-func (lr LogicRules) Fitness(dna interface{}) float64 {
+func (r IsVowelRules) Fitness(dna interface{}) float64 {
 	e := dna.(expr.Expression)
 
-	count := 0
-
-	for i, inputs := range lr.InputValues {
-		if e.Execute(inputs) == lr.OutputValues[i] {
-			count++
-		}
-	}
-
-	f := float64(count)
-
-	f += (1 / float64(e.Complexity()) * 0.1)
-
-	return f
+	return e.Fitness(r.InputValues, r.OutputValues, 0.1)
 }
-func (lr LogicRules) Crossover(dna1 interface{}, f1 float64, dna2 interface{}, f2 float64) interface{} {
+func (r IsVowelRules) Crossover(dna1 interface{}, f1 float64, dna2 interface{}, f2 float64) interface{} {
 	e1 := dna1.(expr.Expression)
 	e2 := dna2.(expr.Expression)
 
-	return expr.MergeExpression(e1, f1, e2, f2)
+	return expr.Merge(e1, f1, e2, f2)
 }
-func (lr LogicRules) Mutate(dna interface{}) interface{} {
+func (r IsVowelRules) Mutate(dna interface{}) interface{} {
 	e := dna.(expr.Expression)
-	return expr.MutateExpression(e, len(lr.InputValues[0]))
+	return expr.Mutate(e, r.MutationRate, r.MaxDepth, len(r.InputValues[0]))
 }
 
-func (lr LogicRules) HasFinished(generation int, dna interface{}, fitness float64) bool {
+func (r IsVowelRules) HasFinished(generation int, dna interface{}, fitness float64) bool {
 	e := dna.(expr.Expression)
-	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, "" /*e.ToString()*/, fitness)
+	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, e.ToString(), fitness)
 
-	finished := /*fitness > float64(len(lr.InputValues)) //*/ generation > 100000
+	finished := fitness > float64(len(r.InputValues))
+	//finished := generation > 100000
 
 	if finished {
-		fmt.Printf("\n %s", expr.OptimizeExpression(e).ToString())
+		fmt.Printf("\n %s", expr.Optimize(e).ToString())
 	}
 
 	return finished
@@ -86,9 +77,11 @@ func main() {
 		outputValues = append(outputValues, (c == "A" || c == "E" || c == "I" || c == "O" || c == "U" || c == "a" || c == "e" || c == "i" || c == "o" || c == "u"))
 	}
 
-	ga.Run(LogicRules{
+	ga.Run(IsVowelRules{
 		InputValues:  inputValues,
 		OutputValues: outputValues,
+		MutationRate: 0.7,
+		MaxDepth:     4,
 	}, ga.Options{
 		PopulationSize: 5000,
 		MutationRate:   0.05,

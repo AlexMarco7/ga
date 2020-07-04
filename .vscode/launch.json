@@ -9,8 +9,8 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${workspaceFolder}/cmd/logic/logic.go",
-            "cwd":"${workspaceFolder}/cmd/logic/",
+            "program": "${workspaceFolder}/cmd/isVowel/isVowel.go",
+            "cwd":"${workspaceFolder}/cmd/isVowel/",
             "env": {},
             "args": []
         },
