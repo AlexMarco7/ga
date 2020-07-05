@@ -1,6 +1,7 @@
 package ga
 
 import (
+	"math"
 	"math/rand"
 	"runtime"
 	"sort"
@@ -10,8 +11,9 @@ import (
 
 type Options struct {
 	PopulationSize int
+	SurvivalRate   float64
 	MaxGeneration  int
-	MutationRate   float32
+	MutationRate   float64
 }
 
 type Rules interface {
@@ -45,9 +47,13 @@ func Run(rules Rules, options Options) interface{} {
 	generation := 0
 	var result interface{}
 
+	survivorsQty := int(math.Floor(options.SurvivalRate * float64(options.PopulationSize)))
+
 	for !found {
 		generation++
-		bestOrganism := g.getBest(population)
+		fitnessAcc := 0.0
+		fitnessAcc, population = g.sort(population)
+		bestOrganism := population[len(population)-1]
 
 		hasFinished := g.Rules.HasFinished(generation, bestOrganism.DNA, bestOrganism.Fitness)
 
@@ -55,10 +61,9 @@ func Run(rules Rules, options Options) interface{} {
 			found = true
 			result = bestOrganism.DNA
 		} else {
-			maxFitness := bestOrganism.Fitness
-			fitnessAcc := g.sort(population, maxFitness)
-			population = g.naturalSelection(population, fitnessAcc)
-			population = append(population, bestOrganism)
+			survivors := population[len(population)-survivorsQty:]
+			population = g.naturalSelection(population[survivorsQty:], fitnessAcc)
+			population = append(population, survivors...)
 		}
 
 	}
@@ -85,58 +90,64 @@ func (g *GA) createPopulation() (population []Organism) {
 	return
 }
 
-// Get the best organism
-func (g *GA) getBest(population []Organism) Organism {
-	best := 0.0
-	index := 0
-	for i := 0; i < len(population); i++ {
-		if population[i].Fitness > best {
-			index = i
-			best = population[i].Fitness
-		}
-	}
-	return population[index]
-}
-
-func (g *GA) sort(population []Organism, maxFitness float64) float64 {
+func (g *GA) sort(population []Organism) (float64, []Organism) {
 	acc := 0.0
 	sort.Slice(population, func(i, j int) bool {
 		return population[i].Fitness < population[j].Fitness
 	})
-	for _, o := range population {
+	for i, o := range population {
 		acc += o.Fitness
-		o.FitnessAcc = acc
+		population[i].FitnessAcc = acc
 
 	}
-	return acc
+	return acc, population
 }
 
 func (g *GA) naturalSelection(population []Organism, fitnessAcc float64) []Organism {
-	next := make([]Organism, len(population)-1)
+
+	couples := [][2]Organism{}
+
+	for i := 0; i < len(population); i++ {
+		a := population[len(population)-1]
+		b := population[len(population)-1]
+
+		ra := fitnessAcc * rand.Float64()
+		rb := fitnessAcc * rand.Float64()
+
+		aFound := false
+		bFound := false
+
+		for j := len(population) - 1; j >= 0; j-- {
+			o := population[j]
+
+			if o.FitnessAcc-o.Fitness <= ra && o.FitnessAcc > ra {
+				aFound = true
+				a = o
+			}
+			if o.FitnessAcc-o.Fitness <= rb && o.FitnessAcc > rb {
+				bFound = true
+				b = o
+			}
+
+			if aFound && bFound {
+				break
+			}
+		}
+
+		couples = append(couples, [2]Organism{a, b})
+	}
 
 	var wg sync.WaitGroup
 
-	for i := 1; i <= len(population)-1; i++ {
+	next := make([]Organism, len(population))
+
+	for i, c := range couples {
 		wg.Add(1)
-		go func(i int) {
-			var a Organism
-			var b Organism
 
-			ra := fitnessAcc * rand.Float64()
-			rb := fitnessAcc * rand.Float64()
-
-			for _, o := range population {
-				if o.FitnessAcc <= ra {
-					a = o
-				}
-				if o.FitnessAcc <= rb {
-					b = o
-				}
-			}
-
+		go func(a Organism, b Organism, i int) {
 			childDNA := g.Rules.Crossover(a.DNA, a.Fitness, b.DNA, b.Fitness)
 
-			if rand.Float32() < g.Options.MutationRate {
+			if rand.Float64() < g.Options.MutationRate {
 				childDNA = g.Rules.Mutate(childDNA)
 			}
 
@@ -146,8 +157,9 @@ func (g *GA) naturalSelection(population []Organism, fitnessAcc float64) []Organ
 			next[i] = child
 
 			wg.Done()
-		}(i - 1)
-		if i%g.CPUNum == 0 {
+		}(c[0], c[1], i)
+
+		if (i+1)%g.CPUNum == 0 {
 			wg.Wait()
 		}
 	}

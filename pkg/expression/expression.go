@@ -29,37 +29,27 @@ type Expression struct {
 func (e Expression) ToString() string {
 	str := ""
 	switch e.Operator {
+	case EQ:
+		str += fmt.Sprintf("%s", string(65+e.Input))
 	case NOT:
-		{
-			str += "NOT("
-		}
+		str += "NOT("
 	case AND:
-		{
-			str += "AND("
-		}
+		str += "AND("
 	case OR:
-		{
-			str += "OR("
-		}
+		str += "OR("
 	case NAND:
-		{
-			str += "NAND("
-		}
+		str += "NAND("
 	case NOR:
-		{
-			str += "NOR("
-		}
+		str += "NOR("
 	case XOR:
-		{
-			str += "XOR("
-		}
+		str += "XOR("
 	case NXOR:
-		{
-			str += "NXOR("
-		}
+		str += "NXOR("
+	default:
+		str += "*"
 	}
 
-	if e.Operator != 0 {
+	if e.Operator != EQ {
 		for i, ee := range e.Expressions {
 			if i != 0 {
 				str += ","
@@ -67,8 +57,6 @@ func (e Expression) ToString() string {
 			str += ee.ToString()
 		}
 		str += ")"
-	} else {
-		str += fmt.Sprintf("%s", string(65+e.Input))
 	}
 
 	return str
@@ -103,6 +91,14 @@ func (e Expression) Fitness(input [][]bool, output []bool, complexityRate float6
 }
 
 func (e Expression) Execute(input []bool) bool {
+
+	defer func() {
+		if r := recover(); r != nil {
+			println("panic: ", e.ToString())
+			panic(r)
+		}
+	}()
+
 	switch e.Operator {
 	case EQ:
 		{
@@ -182,33 +178,29 @@ func Create(depth int, maxDepth int, inputLength int) Expression {
 			Depth:    depth,
 		}
 	} else {
-		tp := Operator(1 + rand.Intn(7))
-		if tp == NOT {
-			return Expression{
-				Expressions: []Expression{Create(depth+1, maxDepth, inputLength)},
-				Operator:    tp,
-			}
-		} else {
-			n := 2 + rand.Intn(inputLength)
+		op := []Operator{NOT, AND, OR, NOR, XOR, NOR}[rand.Intn(6)]
 
-			if tp == XOR || tp == NXOR {
-				n = 2
-			}
+		n := int(math.Min(math.Max(float64(rand.Intn(inputLength)), float64(minItems(op))), float64(maxItems(op))))
 
-			ex := Expression{
-				Expressions: []Expression{},
-				Operator:    tp,
-			}
-			for i := 0; i < n; i++ {
-				ex.Expressions = append(ex.Expressions, Create(depth+1, maxDepth, inputLength))
-			}
-			return (ex)
+		ex := Expression{
+			Expressions: []Expression{},
+			Operator:    op,
 		}
+		for i := 0; i < n; i++ {
+			ex.Expressions = append(ex.Expressions, Create(depth+1, maxDepth, inputLength))
+		}
+		return (ex)
 	}
 }
 
 func Merge(a Expression, af float64, b Expression, bf float64) Expression {
 
+	if bf > af {
+		tmp := a
+		a = b
+		b = tmp
+
+	}
 	r := 0.5
 
 	if af+bf > 0 {
@@ -219,18 +211,28 @@ func Merge(a Expression, af float64, b Expression, bf float64) Expression {
 		return Expression{
 			Input: a.Input,
 		}
+	} else if rand.Float64() <= r/2 {
+		return Expression{
+			Operator:    a.Operator,
+			Input:       a.Input,
+			Expressions: a.Expressions,
+			Depth:       a.Depth,
+		}
+	} else if rand.Float64() <= (1-r)/2 {
+		return Expression{
+			Operator:    b.Operator,
+			Input:       b.Input,
+			Expressions: b.Expressions,
+			Depth:       b.Depth,
+		}
 	} else if a.Operator == EQ && b.Operator != EQ {
 		a = b
-	} else if rand.Float64() <= r/2 {
-		return (a)
-	} else if rand.Float64() <= (1-r)/2 {
-		return (b)
-	} else if rand.Float64() <= 0.2 {
+	} /*else if rand.Float64() <= 0.2 {
 		return Expression{
 			Operator:    OR,
 			Expressions: []Expression{a, b},
 		}
-	}
+	}*/
 
 	newExpressions := []Expression{}
 
@@ -243,11 +245,11 @@ func Merge(a Expression, af float64, b Expression, bf float64) Expression {
 			}
 		} else {
 			if i < len(a.Expressions) {
-				if len(newExpressions) < minItems(a.Operator) || rand.Float64() <= r {
+				if (len(newExpressions) < minItems(a.Operator) || rand.Float64() <= r) && len(newExpressions) < maxItems(a.Operator) {
 					newExpressions = append(newExpressions, a.Expressions[i])
 				}
 			} else {
-				if len(newExpressions) < minItems(a.Operator) || rand.Float64() <= 1-r {
+				if (len(newExpressions) < minItems(a.Operator) || rand.Float64() <= 1-r) && len(newExpressions) < maxItems(a.Operator) {
 					newExpressions = append(newExpressions, b.Expressions[i])
 				}
 			}
@@ -258,7 +260,7 @@ func Merge(a Expression, af float64, b Expression, bf float64) Expression {
 		panic(newExpressions)
 	}
 
-	return (Expression{
+	return Optimize(Expression{
 		Operator:    a.Operator,
 		Expressions: newExpressions,
 	})
@@ -278,21 +280,40 @@ func minItems(o Operator) int {
 	}
 }
 
-func Optimize(e Expression) Expression {
+func maxItems(o Operator) int {
+	switch o {
+	case NOT:
+		return 1
+	case XOR:
+		return 2
+	case NXOR:
+		return 2
+	default:
+		return 999999
+	}
+}
 
-	if e.Operator == NOT {
-		if e.Expressions[0].Operator == NOT {
-			e = e.Expressions[0].Expressions[0]
+func Optimize(e Expression) Expression {
+	ne := e
+
+	if ne.Operator == NOT {
+		if ne.Expressions[0].Operator == NOT {
+			ne = Expression{
+				Operator:    ne.Expressions[0].Expressions[0].Operator,
+				Input:       ne.Expressions[0].Expressions[0].Input,
+				Expressions: ne.Expressions[0].Expressions[0].Expressions,
+				Depth:       ne.Depth,
+			}
 		} else {
-			e.Expressions = []Expression{Optimize(e.Expressions[0])}
+			ne.Expressions = []Expression{Optimize(ne.Expressions[0])}
 		}
-	} else if e.Operator != EQ {
+	} else if ne.Operator == AND || ne.Operator == OR || ne.Operator == NAND || ne.Operator == NOR {
 		newExpressions := []Expression{}
 		eqMap := map[int]Expression{}
-		for _, ee := range e.Expressions {
+		for _, ee := range ne.Expressions {
 			ee = Optimize(ee)
-			if ee.Operator == EQ {
-				eqMap[ee.Input] = ee
+			if ne.Operator == EQ {
+				eqMap[ne.Input] = ee
 			} else {
 				newExpressions = append(newExpressions, ee)
 			}
@@ -300,45 +321,58 @@ func Optimize(e Expression) Expression {
 		for _, v := range eqMap {
 			newExpressions = append(newExpressions, v)
 		}
-		e.Expressions = newExpressions
+		ne.Expressions = newExpressions
 
-		if len(e.Expressions) == 1 {
-			e = e.Expressions[0]
-			e.Depth--
+		if len(ne.Expressions) == 1 {
+			ne = Expression{
+				Operator:    ne.Expressions[0].Operator,
+				Input:       ne.Expressions[0].Input,
+				Expressions: ne.Expressions[0].Expressions,
+				Depth:       ne.Depth,
+			}
 		}
 	}
 
-	return e
+	return ne
 
 }
 
 func Mutate(e Expression, mutationRate float64, maxDepth int, inputLength int) Expression {
+	ne := e
 	if random(mutationRate) {
-		switch e.Operator {
+		switch ne.Operator {
 		case EQ:
 			{
 				if random(mutationRate) {
-					e.Input = rand.Intn(inputLength)
+					ne.Input = rand.Intn(inputLength)
 				}
 			}
 		case NOT:
 			{
-				e.Expressions[0] = Mutate(e.Expressions[0], mutationRate, maxDepth, inputLength)
 				if random(mutationRate) {
-					e = e.Expressions[0]
-					e.Depth--
+					ne = Expression{
+						Operator:    ne.Expressions[0].Operator,
+						Input:       ne.Expressions[0].Input,
+						Expressions: ne.Expressions[0].Expressions,
+						Depth:       ne.Depth,
+					}
+				} else {
+					ne.Expressions = []Expression{Mutate(ne.Expressions[0], mutationRate, maxDepth, inputLength)}
 				}
 			}
 		case XOR:
 			fallthrough
 		case NXOR:
 			{
-				e.Expressions[0] = Mutate(e.Expressions[0], mutationRate, maxDepth, inputLength)
-				e.Expressions[1] = Mutate(e.Expressions[1], mutationRate, maxDepth, inputLength)
+				ne.Expressions = []Expression{
+					Mutate(ne.Expressions[0], mutationRate, maxDepth, inputLength),
+					Mutate(ne.Expressions[1], mutationRate, maxDepth, inputLength),
+				}
 				if random(mutationRate) {
-					e.Operator = []Operator{XOR, NXOR}[rand.Intn(2)]
+					ne.Operator = []Operator{XOR, NXOR}[rand.Intn(2)]
 				}
 			}
+			break
 		case AND:
 			fallthrough
 		case OR:
@@ -350,43 +384,49 @@ func Mutate(e Expression, mutationRate float64, maxDepth int, inputLength int) E
 				if random(mutationRate) {
 					newExpressions := []Expression{}
 
-					for _, ee := range e.Expressions {
-						if !random((1 / float64(len(e.Expressions)))) {
+					for _, ee := range ne.Expressions {
+						if !random((1 / float64(len(ne.Expressions)))) {
 							newExpressions = append(newExpressions, Mutate(ee, mutationRate, maxDepth, inputLength))
 						}
 					}
-					if random((1 / float64(len(e.Expressions)))) {
-						newExpressions = append(newExpressions, Create(e.Depth+1, maxDepth, inputLength))
+					if len(newExpressions) == 0 || random((1 / float64(len(newExpressions)))) {
+						newExpressions = append(newExpressions, Create(ne.Depth+1, maxDepth, inputLength))
 					}
-					e.Expressions = newExpressions
+					ne.Expressions = newExpressions
+
 				} else if random(mutationRate) {
-					idx := int(math.Floor(1 / float64(len(e.Expressions))))
-					if idx < len(e.Expressions) && idx >= 0 {
-						e = e.Expressions[idx]
-						e.Depth--
+					idx := int(math.Floor(1 / float64(len(ne.Expressions))))
+					if idx < len(ne.Expressions) && idx >= 0 {
+						ne = Expression{
+							Operator:    ne.Expressions[idx].Operator,
+							Input:       ne.Expressions[idx].Input,
+							Expressions: ne.Expressions[idx].Expressions,
+							Depth:       ne.Depth,
+						}
 					}
 				} else if random(mutationRate) {
-					e.Operator = []Operator{AND, OR, NAND, NOR}[rand.Intn(4)]
+					ne.Operator = []Operator{AND, OR, NAND, NOR}[rand.Intn(4)]
 					newExpressions := []Expression{}
-					for _, ee := range e.Expressions {
+					for _, ee := range ne.Expressions {
 						newExpressions = append(newExpressions, Mutate(ee, mutationRate, maxDepth, inputLength))
 					}
-					e.Expressions = newExpressions
+					ne.Expressions = newExpressions
 				}
 			}
 		}
-		return (e)
 	} else if random(mutationRate) {
-		return Optimize(e)
+		ne = Optimize(e)
 	} else if random(mutationRate) {
-		return Create(e.Depth, maxDepth, inputLength)
+		ne = Create(ne.Depth, maxDepth, inputLength)
 	} else {
-		return Expression{
+		ne = Expression{
 			Input:    rand.Intn(inputLength),
 			Operator: EQ,
-			Depth:    e.Depth,
+			Depth:    ne.Depth,
 		}
 	}
+
+	return ne
 }
 
 func random(rate float64) bool {

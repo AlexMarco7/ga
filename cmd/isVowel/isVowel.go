@@ -38,10 +38,10 @@ func (r IsVowelRules) Mutate(dna interface{}) interface{} {
 
 func (r IsVowelRules) HasFinished(generation int, dna interface{}, fitness float64) bool {
 	e := dna.(expr.Expression)
-	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, e.ToString(), fitness)
+	fmt.Printf("\n generation: %d | %s | fitness: %2f", generation, "" /*e.ToString()*/, fitness)
 
 	finished := fitness > float64(len(r.InputValues))
-	//finished := generation > 100000
+	//finished := generation > 10000
 
 	if finished {
 		fmt.Printf("\n %s", expr.Optimize(e).ToString())
@@ -80,11 +80,12 @@ func main() {
 	ga.Run(IsVowelRules{
 		InputValues:  inputValues,
 		OutputValues: outputValues,
-		MutationRate: 0.7,
-		MaxDepth:     4,
+		MutationRate: 0.5,
+		MaxDepth:     6,
 	}, ga.Options{
 		PopulationSize: 5000,
-		MutationRate:   0.05,
+		SurvivalRate:   0.001,
+		MutationRate:   0.5,
 	})
 	elapsed := time.Since(start)
 	fmt.Printf("\nTime taken: %s\n", elapsed)
