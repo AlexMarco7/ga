@@ -23,13 +23,13 @@ func (r IsVowelRules) Create() interface{} {
 func (r IsVowelRules) Fitness(dna interface{}) float64 {
 	e := dna.(expr.Expression)
 
-	return e.Fitness(r.InputValues, r.OutputValues, 0.1)
+	return e.CalcFitness(r.InputValues, r.OutputValues, 0.1)
 }
-func (r IsVowelRules) Crossover(dna1 interface{}, f1 float64, dna2 interface{}, f2 float64) interface{} {
+func (r IsVowelRules) Crossover(dna1 interface{}, dna2 interface{}) interface{} {
 	e1 := dna1.(expr.Expression)
 	e2 := dna2.(expr.Expression)
 
-	return expr.Merge(e1, f1, e2, f2)
+	return expr.Merge(e1, e2)
 }
 func (r IsVowelRules) Mutate(dna interface{}) interface{} {
 	e := dna.(expr.Expression)

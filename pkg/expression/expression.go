@@ -24,6 +24,7 @@ type Expression struct {
 	Input       int
 	Operator    Operator
 	Depth       int
+	Fitness     float64
 }
 
 func (e Expression) ToString() string {
@@ -74,7 +75,7 @@ func (e Expression) Complexity() int {
 	}
 }
 
-func (e Expression) Fitness(input [][]bool, output []bool, complexityRate float64) float64 {
+func (e Expression) CalcFitness(input [][]bool, output []bool, complexityRate float64) float64 {
 	count := 0
 
 	for i, input := range input {
@@ -82,12 +83,15 @@ func (e Expression) Fitness(input [][]bool, output []bool, complexityRate float6
 			count++
 		}
 	}
+	f := float64(count)
 
-	if complexityRate == 0.0 {
-		return float64(count)
-	} else {
-		return float64(count) + (1 / float64(e.Complexity()) * complexityRate)
+	if complexityRate != 0.0 {
+		f = float64(count) + (1 / float64(e.Complexity()) * complexityRate)
 	}
+
+	e.Fitness = f
+
+	return f
 }
 
 func (e Expression) Execute(input []bool) bool {
@@ -193,7 +197,9 @@ func Create(depth int, maxDepth int, inputLength int) Expression {
 	}
 }
 
-func Merge(a Expression, af float64, b Expression, bf float64) Expression {
+func Merge(a Expression, b Expression) Expression {
+	af := a.Fitness
+	bf := b.Fitness
 
 	if bf > af {
 		tmp := a
